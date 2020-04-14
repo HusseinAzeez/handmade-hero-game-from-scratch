@@ -69,7 +69,7 @@ internal void renderGradient(win32OffscreenBuffer buffer, int blueOffset, int gr
 }
 
 // DIB: Device Indpendent Bitmap
-internal void win32ResizeDIBSection(win32OffscreenBuffer* buffer, int width, int height)
+internal void win32ResizeDIBSection(win32OffscreenBuffer *buffer, int width, int height)
 {
     if (buffer->memory)
     {
@@ -92,9 +92,8 @@ internal void win32ResizeDIBSection(win32OffscreenBuffer* buffer, int width, int
     buffer->pitch = width * buffer->bytesPerPixel;
 }
 
-internal void win32DisplayBufferInWindow(HDC deviceContext,
-        win32OffscreenBuffer buffer,
-        int windowWidth, int windowHeight, int x, int y, int width, int height)
+internal void win32DisplayBufferInWindow(HDC deviceContext, win32OffscreenBuffer buffer,
+        int windowWidth, int windowHeight)
 {
     /* StretchDIBits function copies the color data for a rectangle of pixels
      * in a DIB, JPEG, or PNG image to the specified destination rectangle.
@@ -104,14 +103,11 @@ internal void win32DisplayBufferInWindow(HDC deviceContext,
      * than the source rectangle,
      * this function compresses the rows and columns by using the specified raster operation.
      */
+    // TODO(Xizors): Aspect ratio correction.
     StretchDIBits(
             deviceContext,
-            /*
-               x, y, width, height,
-               x, y, width, height,
-               */
-            0, 0, buffer.width, buffer.height,
             0, 0, windowWidth, windowHeight,
+            0, 0, buffer.width, buffer.height,
             buffer.memory,
             &buffer.info,
             DIB_RGB_COLORS,
@@ -130,8 +126,6 @@ LRESULT CALLBACK win32MainWindowCallback(HWND window, UINT message, WPARAM wPara
             }
         case WM_SIZE:
             {
-                win32WindowDimension dimension = win32GetWindowDimension(window);
-                win32ResizeDIBSection(&backBuffer, dimension.width, dimension.height);
                 break;
             }
         case WM_CLOSE:
@@ -148,17 +142,11 @@ LRESULT CALLBACK win32MainWindowCallback(HWND window, UINT message, WPARAM wPara
             }
         case WM_PAINT:
             {
-                // Draw something to the window screen
                 PAINTSTRUCT paint;
                 HDC deviceContext = BeginPaint(window, &paint);
-                int x = paint.rcPaint.left;
-                int y = paint.rcPaint.top;
-                int width = paint.rcPaint.right - paint.rcPaint.left;
-                int height = paint.rcPaint.bottom - paint.rcPaint.top;
-
                 win32WindowDimension dimension = win32GetWindowDimension(window);
-                win32DisplayBufferInWindow(deviceContext, backBuffer,
-                        dimension.width, dimension.height, x, y, width, height);
+                win32DisplayBufferInWindow(deviceContext, backBuffer, 
+                        dimension.width, dimension.height);
                 EndPaint(window, &paint);
                 break;
             }
@@ -175,7 +163,8 @@ LRESULT CALLBACK win32MainWindowCallback(HWND window, UINT message, WPARAM wPara
 int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, int cmdShow)
 {
     WNDCLASS windowClass = {};
-    windowClass.style = CS_HREDRAW | CS_VREDRAW;
+    win32ResizeDIBSection(&backBuffer, 1280, 720);
+    windowClass.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
     windowClass.hInstance = instance;
     windowClass.lpfnWndProc = win32MainWindowCallback;
     // TODO(Xizors): Add game icon.
@@ -200,6 +189,10 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
 
         if (window)
         {
+            // NOTE(Xizors): Since we specified CS_OWNDC, we can just
+            // get one device context and use it forever because we
+            // are not shearing it with anyone.
+            HDC deviceContext = GetDC(window);
             int xOffset = 0;
             int yOffset = 0;
             running = true;
@@ -217,14 +210,9 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
                 }
                 renderGradient(backBuffer, xOffset, yOffset);
 
-                HDC deviceContext = GetDC(window);
                 win32WindowDimension dimension = win32GetWindowDimension(window);
-                win32DisplayBufferInWindow(deviceContext, backBuffer,
-                        dimension.width, dimension.height, 
-                        0, 0, 
+                win32DisplayBufferInWindow(deviceContext, backBuffer, 
                         dimension.width, dimension.height);
-                ReleaseDC(window, deviceContext);
-
                 ++xOffset;
                 ++yOffset;
             }
