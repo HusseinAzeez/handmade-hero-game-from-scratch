@@ -9,7 +9,7 @@ typedef int8_t int8;
 typedef int16_t int16;
 typedef int32_t int32;
 typedef int64_t int64;
-
+typedef int32 bool32;
 typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint32_t uint32;
@@ -155,16 +155,6 @@ LRESULT CALLBACK win32MainWindowCallback(HWND window, UINT message, WPARAM wPara
 		{
 			if (VKCode == 'W')
 			{
-				OutputDebugStringA("A: ");
-				if (isDown)
-				{
-					OutputDebugStringA("isDown");
-				}
-				if (wasDown)
-				{
-					OutputDebugStringA("wasDown");
-				}
-				OutputDebugStringA("\n");
 			}
 			else if (VKCode == 'A')
 			{
@@ -199,6 +189,11 @@ LRESULT CALLBACK win32MainWindowCallback(HWND window, UINT message, WPARAM wPara
 			else if (VKCode == VK_SPACE)
 			{
 			}
+		}
+		bool32 altKeyWasDown = (lParam & (1 << 29));
+		if ((VKCode == VK_F4) && altKeyWasDown)
+		{
+			running = false;
 		}
 	}
 	case WM_PAINT:
@@ -296,7 +291,8 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
 
 						if (aButton)
 						{
-							yOffset += 2;
+							yOffset += stickX << 12;
+							xOffset += stickY << 12;
 						}
 					}
 					else
@@ -308,7 +304,6 @@ int CALLBACK WinMain(HINSTANCE instance, HINSTANCE prevInstance, LPSTR cmdLine, 
 				win32WindowDimension dimension = win32GetWindowDimension(window);
 				win32DisplayBufferInWindow(&backBuffer, deviceContext,
 					dimension.width, dimension.height);
-				++xOffset;
 			}
 		}
 		else {
